@@ -1,0 +1,29 @@
+node_modules
+.pnpm-store
+
+# Build outputs
+.turbo
+.next
+dist
+.expo
+
+# Testing
+coverage
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo

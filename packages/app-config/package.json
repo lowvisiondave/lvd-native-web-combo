@@ -1,0 +1,19 @@
+{
+  "name": "@repo/app-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "react-native": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./app-routes": "./app-routes.ts",
+    "./native-route-paths": "./native-route-paths.ts",
+    "./tokens": "./tokens.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"No lint configured for @repo/app-config\""
+  }
+}

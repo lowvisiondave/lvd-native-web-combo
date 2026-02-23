@@ -1,0 +1,31 @@
+{
+  "name": "@repo/native",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "build": "echo \"Native build is handled by EAS/Expo\"",
+    "lint": "echo \"No lint configured for @repo/native\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
+    "@repo/app-config": "workspace:*",
+    "@repo/bridge": "workspace:*",
+    "expo": "latest",
+    "expo-constants": "~18.0.13",
+    "expo-image-picker": "^17.0.10",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "latest",
+    "react-native-webview": "13.15.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.17",
+    "typescript": "latest"
+  }
+}
