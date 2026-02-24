@@ -1,5 +1,5 @@
 {
-  "name": "lvd-mobile-web",
+  "name": "lvd-native-web-combo",
   "private": true,
   "packageManager": "pnpm@10.18.1",
   "scripts": {

@@ -9,20 +9,28 @@ const nextConfig = {
       }
     ]
   },
-  async rewrites() {
-    const appRouteMatcher = "/:path((?!_next(?:/|$)|api(?:/|$)|web(?:/|$)|native(?:/|$)|.*\\..*).*)";
-
+  async headers() {
     return [
       {
-        source: appRouteMatcher,
-        has: [{ type: "header", key: "x-native-app", value: "1" }],
-        destination: "/native/:path"
-      },
-      {
-        source: appRouteMatcher,
-        destination: "/web/:path"
+        source: "/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https://images.unsplash.com",
+              "connect-src 'self' ws:",
+              "frame-ancestors 'none'"
+            ].join("; ")
+          }
+        ]
       }
     ];
+  },
+  async rewrites() {
+    return [];
   }
 };
 

@@ -1,10 +1,12 @@
 "use client";
 
-import { NATIVE_SHELL_TITLE } from "@repo/app-config/app-routes";
+import { NATIVE_SHELL_TITLE, appRoutes } from "@repo/app-config/app-routes";
 import { BridgeProvider } from "@repo/bridge/web";
 import { fromNativeRoute, toNativeRoute } from "@repo/app-config/native-route-paths";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, type ReactNode } from "react";
+
+const validPaths = new Set(appRoutes.map((r) => r.path));
 
 export function NativeShell({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -13,6 +15,7 @@ export function NativeShell({ children }: { children: ReactNode }) {
 
   const pushPath = useCallback(
     (nextPath: string) => {
+      if (!validPaths.has(nextPath)) return;
       router.push(toNativeRoute(nextPath));
     },
     [router]

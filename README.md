@@ -2,6 +2,11 @@
 
 A Turborepo monorepo demonstrating how to share a **Next.js** web app inside a **React Native (Expo)** shell using a typed WebView bridge. The same pages render standalone on the web and embedded inside a native app with native chrome, gestures, and modals.
 
+## Prerequisites
+
+- [Node.js](https://nodejs.org) 18+
+- [pnpm](https://pnpm.io) 10+
+
 ## Quick Start
 
 ```bash
@@ -44,7 +49,7 @@ Native App (Expo)              Web App (Next.js)
                                └─────────────────┘
 ```
 
-Routing is handled by Next.js middleware rewrites: requests with `x-native-app: 1` resolve to `/native/…`, all others to `/web/…`. Both share the same `[device]` layout that picks the right shell.
+Routing is handled by `rewrites()` in `next.config.mjs`: requests with the `x-native-app: 1` header resolve to `/native/…`, all others to `/web/…`. Both share the same `[device]` layout that picks the right shell.
 
 ## Project Structure
 
@@ -85,7 +90,7 @@ All messages are fully typed in `packages/bridge/messages.ts` with runtime valid
 - [Next.js 16](https://nextjs.org) — web app with App Router
 - [Tailwind CSS v4](https://tailwindcss.com) — styling
 - [Expo](https://expo.dev) — React Native toolchain
-- [react-native-webview](https://github.com/nicepayments/nicepay-webview) — WebView bridge
+- [react-native-webview](https://github.com/react-native-webview/react-native-webview) — WebView bridge
 - [pnpm](https://pnpm.io) — package management
 
 ## License

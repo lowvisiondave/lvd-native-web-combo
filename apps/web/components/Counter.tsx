@@ -16,7 +16,7 @@ export function Counter() {
       prevBridgeCount.current = bridgeCount;
       setPopKey((k) => k + 1);
     }
-  });
+  }, [bridgeCount]);
 
   const handleUpdate = (delta: number) => {
     if (isNativeApp) {

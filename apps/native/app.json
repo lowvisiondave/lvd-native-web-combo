@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "LVD Mobile Web",
-    "slug": "lvd-mobile-web",
+    "name": "LVD Native Web Combo",
+    "slug": "lvd-native-web-combo",
     "version": "1.0.0",
     "orientation": "portrait",
     "platforms": ["ios", "android"],

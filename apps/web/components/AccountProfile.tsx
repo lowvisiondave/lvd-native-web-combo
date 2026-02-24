@@ -52,6 +52,7 @@ export function AccountProfile({ name, email, initials }: Props) {
     (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) handleFile(file);
+      e.target.value = "";
     },
     [handleFile]
   );
@@ -60,7 +61,7 @@ export function AccountProfile({ name, email, initials }: Props) {
     (e: DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
-      const file = e.dataTransfer.files[0];
+      const file = e.dataTransfer?.files[0];
       if (file) handleFile(file);
     },
     [handleFile]
@@ -70,7 +71,10 @@ export function AccountProfile({ name, email, initials }: Props) {
     if (!isNativeApp) return;
     return onPhotoPickerResult((result) => {
       if ("uri" in result) {
-        setAvatarSrc(result.uri);
+        const { uri } = result;
+        if (uri.startsWith("data:image/") || uri.startsWith("https://")) {
+          setAvatarSrc(uri);
+        }
       }
     });
   }, [isNativeApp, onPhotoPickerResult]);
@@ -106,6 +110,7 @@ export function AccountProfile({ name, email, initials }: Props) {
       <div className="flex items-center gap-4">
         <button
           type="button"
+          aria-label="Change photo"
           onClick={handleChangePhoto}
           onDragOver={(e) => {
             e.preventDefault();

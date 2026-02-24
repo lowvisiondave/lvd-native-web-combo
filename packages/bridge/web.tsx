@@ -4,7 +4,6 @@ import {
   parseBridgeMessage,
   serializeBridgeMessage,
   type CounterActionMessage,
-  type NativeNavActionMessage,
   type PhotoPickerResultMessage,
   type WebNavStateMessage
 } from "./messages";
@@ -87,6 +86,8 @@ export function BridgeProvider({
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
+      if (event.origin && event.origin !== "null" && event.origin !== window.location.origin) return;
+
       const parsed = parseBridgeMessage(
         typeof event.data === "string" ? event.data : JSON.stringify(event.data)
       );
@@ -94,14 +95,14 @@ export function BridgeProvider({
 
       switch (parsed.type) {
         case "NATIVE_NAV_ACTION":
-          onNativeNavigate((parsed as NativeNavActionMessage).payload.path);
+          onNativeNavigate(parsed.payload.path);
           break;
         case "COUNTER_SYNC":
           setCount(parsed.payload.count);
           break;
         case "PHOTO_PICKER_RESULT":
           for (const listener of photoPickerListeners.current) {
-            listener((parsed as PhotoPickerResultMessage).payload);
+            listener(parsed.payload);
           }
           break;
       }

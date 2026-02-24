@@ -26,10 +26,3 @@ export const appNavItems: AppNavItem[] = [
   { path: "/account", label: "Account", icon: "person" }
 ];
 
-export function getRoute(path: string): AppRoute {
-  return appRoutes.find((r) => r.path === path) ?? { path, title: "Page" };
-}
-
-export function getRouteTitle(path: string): string {
-  return getRoute(path).title;
-}

@@ -31,11 +31,7 @@ export function NotificationItem({ title, body, time }: NotificationItemProps) {
         </button>
         <button
           type="button"
-          onClick={() => {
-            if (window.confirm("Are you sure you want to delete this?")) {
-              setDismissed(true);
-            }
-          }}
+          onClick={() => setDismissed(true)}
           className="flex items-center gap-1.5 rounded-md bg-red-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-600"
         >
           Delete

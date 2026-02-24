@@ -1,15 +1,13 @@
 "use client";
 
 import { useBridge } from "@repo/bridge/web";
-import type { ReactNode } from "react";
 
 type Props = {
   label: string;
   description: string;
-  children?: ReactNode;
 };
 
-export function NativeFeatureBadge({ label, description, children }: Props) {
+export function NativeFeatureBadge({ label, description }: Props) {
   const { isNativeApp } = useBridge();
   if (!isNativeApp) return null;
 
@@ -24,7 +22,6 @@ export function NativeFeatureBadge({ label, description, children }: Props) {
       <p className="mt-1.5 text-[11px] leading-relaxed text-neutral-400">
         {description}
       </p>
-      {children}
     </div>
   );
 }

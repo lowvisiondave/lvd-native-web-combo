@@ -28,13 +28,6 @@ export type WebNavStateMessage = {
   };
 };
 
-export type WebAckMessage = {
-  type: "WEB_ACK";
-  payload: {
-    message: string;
-  };
-};
-
 export type CounterActionMessage = {
   type: "COUNTER_ACTION";
   payload: { delta: number };
@@ -56,7 +49,7 @@ export type PhotoPickerResultMessage = {
 };
 
 export type NativeToWebMessage = NativeContextMessage | NativeNavActionMessage | CounterSyncMessage | PhotoPickerResultMessage;
-export type WebToNativeMessage = WebNavStateMessage | WebAckMessage | CounterActionMessage | DetailRequestMessage | PhotoPickerRequestMessage;
+export type WebToNativeMessage = WebNavStateMessage | CounterActionMessage | DetailRequestMessage | PhotoPickerRequestMessage;
 export type BridgeMessage = NativeToWebMessage | WebToNativeMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -74,17 +67,19 @@ export function isBridgeMessage(value: unknown): value is BridgeMessage {
     case "NATIVE_NAV_ACTION":
       return typeof value.payload.path === "string" && typeof value.payload.title === "string";
     case "COUNTER_SYNC":
-      return typeof value.payload.count === "number";
+      return typeof value.payload.count === "number" && Number.isFinite(value.payload.count);
     case "WEB_NAV_STATE":
       return (
         typeof value.payload.path === "string" &&
         typeof value.payload.title === "string" &&
         typeof value.payload.webNavVisible === "boolean"
       );
-    case "WEB_ACK":
-      return typeof value.payload.message === "string";
     case "COUNTER_ACTION":
-      return typeof value.payload.delta === "number";
+      return (
+        typeof value.payload.delta === "number" &&
+        Number.isFinite(value.payload.delta) &&
+        Math.abs(value.payload.delta as number) <= 100
+      );
     case "DETAIL_REQUEST":
       return typeof value.payload.id === "string" && typeof value.payload.label === "string";
     case "PHOTO_PICKER_REQUEST":
@@ -102,7 +97,7 @@ export function serializeBridgeMessage(message: BridgeMessage): string {
 
 export function toInjectedWebViewScript(message: BridgeMessage): string {
   const payload = serializeBridgeMessage(message).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-  return `window.postMessage('${payload}', '*'); true;`;
+  return `window.postMessage('${payload}', window.location.origin); true;`;
 }
 
 export function parseBridgeMessage(raw: unknown): BridgeMessage | null {

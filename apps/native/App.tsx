@@ -13,7 +13,7 @@ import { toNativeRoute } from "@repo/app-config/native-route-paths";
 import { designTokens } from "@repo/app-config/tokens";
 import Constants from "expo-constants";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Linking, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import {
   SafeAreaProvider,
   SafeAreaView
@@ -28,6 +28,13 @@ const { color } = designTokens;
 function inferBaseWebUrl() {
   const envUrl = process.env.EXPO_PUBLIC_WEB_URL;
   if (envUrl) return envUrl;
+
+  if (!__DEV__) {
+    throw new Error(
+      "EXPO_PUBLIC_WEB_URL must be set to an https:// URL in production builds"
+    );
+  }
+
   const hostUri = Constants.expoConfig?.hostUri;
   const host = hostUri?.split(":")[0];
   if (host) return `http://${host}:3000`;
@@ -41,9 +48,25 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState("/");
   const [count, setCount] = useState(0);
   const [detailItem, setDetailItem] = useState<{ id: string; label: string } | null>(null);
+  const clearDetailItem = useCallback(() => setDetailItem(null), []);
   const badgeScale = useRef(new Animated.Value(1)).current;
   const prevCount = useRef(count);
   const initialUri = useMemo(() => `${BASE_WEB_URL}${toNativeRoute("/")}`, []);
+  const messageTimestamps = useRef<Record<string, number>>({});
+
+  const handleNavigationRequest = useCallback(
+    (request: { url: string }) => {
+      if (
+        request.url.startsWith(BASE_WEB_URL) ||
+        request.url.startsWith("data:")
+      ) {
+        return true;
+      }
+      Linking.openURL(request.url);
+      return false;
+    },
+    []
+  );
 
   const sendMessageToWeb = useCallback(
     (message: NativeToWebMessage) => {
@@ -119,6 +142,11 @@ export default function App() {
     const parsed = parseBridgeMessage(event.nativeEvent.data);
     if (!parsed) return;
 
+    const now = Date.now();
+    const last = messageTimestamps.current[parsed.type] ?? 0;
+    if (now - last < 50) return;
+    messageTimestamps.current[parsed.type] = now;
+
     switch (parsed.type) {
       case "WEB_NAV_STATE":
         setCurrentPath(parsed.payload.path);
@@ -127,7 +155,7 @@ export default function App() {
         setCount((prev) => prev + parsed.payload.delta);
         break;
       case "DETAIL_REQUEST":
-        setDetailItem(parsed.payload as { id: string; label: string });
+        setDetailItem(parsed.payload);
         break;
       case "PHOTO_PICKER_REQUEST":
         handlePhotoPickerRequest();
@@ -150,7 +178,7 @@ export default function App() {
         stiffness: 300
       }).start();
     }
-  });
+  }, [count, badgeScale]);
 
   const injectedBeforeLoad = useMemo(() => {
     const msg: NativeContextMessage = {
@@ -196,6 +224,7 @@ export default function App() {
           <WebView
             injectedJavaScriptBeforeContentLoaded={injectedBeforeLoad}
             onMessage={onWebMessage}
+            onShouldStartLoadWithRequest={handleNavigationRequest}
             ref={webViewRef}
             source={{ headers: { "x-native-app": "1" }, uri: initialUri }}
             style={styles.webView}
@@ -212,7 +241,7 @@ export default function App() {
         </SafeAreaView>
       </SafeAreaView>
 
-      <DetailDrawer baseUrl={BASE_WEB_URL} item={detailItem} onClose={() => setDetailItem(null)} />
+      <DetailDrawer baseUrl={BASE_WEB_URL} item={detailItem} onClose={clearDetailItem} />
     </SafeAreaProvider>
   );
 }

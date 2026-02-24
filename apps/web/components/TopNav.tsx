@@ -18,19 +18,23 @@ export function TopNav({ title, links }: TopNavProps) {
           {title}
         </Link>
         <nav className="flex items-center gap-6">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`text-sm font-medium transition-colors ${
-                currentPath === link.href
-                  ? "text-brand"
-                  : "text-neutral-400 hover:text-white"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {links.map((link) => {
+            const active = currentPath === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? "page" : undefined}
+                className={`text-sm font-medium transition-colors ${
+                  active
+                    ? "text-brand"
+                    : "text-neutral-400 hover:text-white"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
       </div>
     </header>

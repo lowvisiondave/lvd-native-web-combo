@@ -1,15 +1,16 @@
 import { designTokens } from "@repo/app-config/tokens";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Animated,
+  BackHandler,
   Dimensions,
   LayoutAnimation,
-  Modal,
   PanResponder,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   UIManager,
@@ -22,8 +23,13 @@ if (Platform.OS === "android") {
 }
 
 const { color } = designTokens;
-const SCREEN_WIDTH = Dimensions.get("window").width;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
 const ACTION_WIDTH = 80;
+const SWIPE_VELOCITY_THRESHOLD = 1.2;
+const MOVE_THRESHOLD = 5;
+const CAPTURE_THRESHOLD = 10;
+const MAX_DRAG_RATIO = 0.5;
 
 type Notification = {
   id: string;
@@ -32,15 +38,26 @@ type Notification = {
   time: string;
 };
 
+type OpenSide = "none" | "left" | "right";
+
 const initialNotifications: Notification[] = [
   { id: "1", title: "Notification 1", body: "This is a sample notification.", time: "Just now" },
   { id: "2", title: "Notification 2", body: "This is another notification.", time: "2m ago" },
   { id: "3", title: "Notification 3", body: "One more for good measure.", time: "1h ago" }
 ];
 
+function getBaseOffset(side: OpenSide): number {
+  if (side === "left") return -ACTION_WIDTH;
+  if (side === "right") return ACTION_WIDTH;
+  return 0;
+}
+
+// ─── Main Screen ─────────────────────────────────────────────
+
 export function NotificationsScreen() {
   const [items, setItems] = useState(initialNotifications);
   const [selected, setSelected] = useState<Notification | null>(null);
+  const clearSelected = useCallback(() => setSelected(null), []);
 
   const handleRemove = useCallback((id: string) => {
     LayoutAnimation.configureNext({
@@ -52,38 +69,41 @@ export function NotificationsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.badgeCard}>
-        <View style={styles.badgeRow}>
-          <View style={styles.badgePill}>
-            <Text style={styles.badgePillText}>Native</Text>
+      <ScrollView>
+        <View style={styles.badgeCard}>
+          <View style={styles.badgeRow}>
+            <View style={styles.badgePill}>
+              <Text style={styles.badgePillText}>Native</Text>
+            </View>
+            <Text style={styles.badgeLabel}>Full Native Screen</Text>
           </View>
-          <Text style={styles.badgeLabel}>Full Native Screen</Text>
+          <Text style={styles.badgeDesc}>
+            This entire tab is a React Native view overlaying the WebView. Swipe gestures, animations, and modals are all native.
+          </Text>
         </View>
-        <Text style={styles.badgeDesc}>
-          This entire tab is a React Native view overlaying the WebView. Swipe gestures, animations, and modals are all native.
-        </Text>
-      </View>
-      <Text style={styles.hint}>Swipe to manage</Text>
-      {items.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>All caught up!</Text>
-        </View>
-      ) : (
-        items.map((item) => (
-          <SwipeableNotification
-            key={item.id}
-            item={item}
-            onArchive={handleRemove}
-            onDelete={handleRemove}
-            onTap={setSelected}
-          />
-        ))
-      )}
-
-      <NotificationDetail item={selected} onClose={() => setSelected(null)} />
+        <Text style={styles.hint}>Swipe to manage</Text>
+        {items.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>All caught up!</Text>
+          </View>
+        ) : (
+          items.map((item) => (
+            <SwipeableNotification
+              key={item.id}
+              item={item}
+              onArchive={handleRemove}
+              onDelete={handleRemove}
+              onTap={setSelected}
+            />
+          ))
+        )}
+      </ScrollView>
+      <NotificationDetail item={selected} onClose={clearSelected} />
     </View>
   );
 }
+
+// ─── Detail Sheet ────────────────────────────────────────────
 
 function NotificationDetail({
   item,
@@ -92,64 +112,90 @@ function NotificationDetail({
   item: Notification | null;
   onClose: () => void;
 }) {
-  const translateY = useRef(new Animated.Value(Dimensions.get("window").height)).current;
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const [closing, setClosing] = useState(false);
+  const lastItem = useRef<Notification | null>(null);
+
+  if (item) lastItem.current = item;
+
+  const isVisible = item !== null || closing;
 
   useEffect(() => {
     if (item) {
+      setClosing(false);
       Animated.spring(translateY, {
         toValue: 0,
         useNativeDriver: true,
         damping: 20,
         stiffness: 200
       }).start();
-    } else {
-      translateY.setValue(Dimensions.get("window").height);
     }
   }, [item, translateY]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
+    setClosing(true);
+    onClose();
     Animated.timing(translateY, {
-      toValue: Dimensions.get("window").height,
+      toValue: SCREEN_HEIGHT,
       duration: 250,
       useNativeDriver: true
-    }).start(() => onClose());
-  };
+    }).start(({ finished }) => {
+      if (finished) {
+        setClosing(false);
+        lastItem.current = null;
+      }
+    });
+  }, [onClose, translateY]);
+
+  useEffect(() => {
+    if (!isVisible || Platform.OS !== "android") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [isVisible, handleClose]);
+
+  if (!isVisible) return null;
+
+  const displayItem = lastItem.current;
+  if (!displayItem) return null;
+
+  const backdropOpacity = translateY.interpolate({
+    inputRange: [0, SCREEN_HEIGHT],
+    outputRange: [1, 0],
+    extrapolate: "clamp"
+  });
 
   return (
-    <Modal
-      animationType="fade"
-      transparent
-      visible={item !== null}
-      onRequestClose={handleClose}
-    >
+    <View style={detailStyles.fullscreen} pointerEvents={closing ? "none" : "auto"}>
+      <Animated.View style={[detailStyles.backdrop, { opacity: backdropOpacity }]} />
       <View style={detailStyles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-        <Animated.View style={{ transform: [{ translateY }] }}>
-          {item && (
-            <SafeAreaView edges={["bottom"]} style={detailStyles.sheet}>
-              <View style={detailStyles.handle} />
-              <View style={detailStyles.header}>
-                <View style={detailStyles.dot} />
-                <Text style={detailStyles.time}>{item.time}</Text>
-              </View>
-              <Text style={detailStyles.title}>{item.title}</Text>
-              <Text style={detailStyles.body}>{item.body}</Text>
-              <Text style={detailStyles.extra}>
-                This detail view is rendered entirely in native, triggered by
-                tapping a notification in the list above.
-              </Text>
-              <Pressable onPress={handleClose} style={detailStyles.button}>
-                <Text style={detailStyles.buttonText}>Close</Text>
-              </Pressable>
-            </SafeAreaView>
-          )}
+        <Animated.View style={{ transform: [{ translateY }], width: "100%" }}>
+          <SafeAreaView edges={["bottom"]} style={detailStyles.sheet}>
+            <View style={detailStyles.handle} />
+            <View style={detailStyles.header}>
+              <View style={detailStyles.dot} />
+              <Text style={detailStyles.time}>{displayItem.time}</Text>
+            </View>
+            <Text style={detailStyles.title}>{displayItem.title}</Text>
+            <Text style={detailStyles.body}>{displayItem.body}</Text>
+            <Text style={detailStyles.extra}>
+              This detail view is rendered entirely in native, triggered by
+              tapping a notification in the list above.
+            </Text>
+            <Pressable onPress={handleClose} style={detailStyles.button}>
+              <Text style={detailStyles.buttonText}>Close</Text>
+            </Pressable>
+          </SafeAreaView>
         </Animated.View>
       </View>
-    </Modal>
+    </View>
   );
 }
 
-type OpenSide = "none" | "left" | "right";
+// ─── Swipeable Row ───────────────────────────────────────────
 
 function SwipeableNotification({
   item,
@@ -164,6 +210,7 @@ function SwipeableNotification({
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const openSide = useRef<OpenSide>("none");
+  const didMove = useRef(false);
 
   const snapTo = useCallback(
     (toValue: number) => {
@@ -204,8 +251,6 @@ function SwipeableNotification({
     ]);
   }, [snapTo, deleteDismiss]);
 
-  const didMove = useRef(false);
-
   const handleTap = useCallback(() => {
     if (openSide.current !== "none") {
       snapTo(0);
@@ -214,50 +259,45 @@ function SwipeableNotification({
     }
   }, [snapTo, onTap, item]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy * 1.5),
-      onPanResponderGrant: () => {
-        didMove.current = false;
-        translateX.stopAnimation();
-      },
-      onPanResponderMove: (_, g) => {
-        if (Math.abs(g.dx) > 5) didMove.current = true;
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, g) =>
+          Math.abs(g.dx) > CAPTURE_THRESHOLD &&
+          Math.abs(g.dx) > Math.abs(g.dy * 1.5),
+        onPanResponderGrant: () => {
+          didMove.current = false;
+          translateX.stopAnimation();
+        },
+        onPanResponderMove: (_, g) => {
+          if (Math.abs(g.dx) > MOVE_THRESHOLD) didMove.current = true;
+          const base = getBaseOffset(openSide.current);
+          const clamped = Math.max(
+            -SCREEN_WIDTH * MAX_DRAG_RATIO,
+            Math.min(SCREEN_WIDTH * MAX_DRAG_RATIO, base + g.dx)
+          );
+          translateX.setValue(clamped);
+        },
+        onPanResponderRelease: (_, g) => {
+          if (!didMove.current) {
+            handleTap();
+            return;
+          }
 
-        let base = 0;
-        if (openSide.current === "left") base = -ACTION_WIDTH;
-        else if (openSide.current === "right") base = ACTION_WIDTH;
+          const finalX = getBaseOffset(openSide.current) + g.dx;
 
-        const x = Math.max(
-          -SCREEN_WIDTH * 0.5,
-          Math.min(SCREEN_WIDTH * 0.5, base + g.dx)
-        );
-        translateX.setValue(x);
-      },
-      onPanResponderRelease: (_, g) => {
-        if (!didMove.current) {
-          handleTap();
-          return;
+          if (g.vx < -SWIPE_VELOCITY_THRESHOLD || finalX < -ACTION_WIDTH * 0.5) {
+            snapTo(-ACTION_WIDTH);
+          } else if (g.vx > SWIPE_VELOCITY_THRESHOLD || finalX > ACTION_WIDTH * 0.5) {
+            snapTo(ACTION_WIDTH);
+          } else {
+            snapTo(0);
+          }
         }
-
-        let base = 0;
-        if (openSide.current === "left") base = -ACTION_WIDTH;
-        else if (openSide.current === "right") base = ACTION_WIDTH;
-
-        const finalX = base + g.dx;
-
-        if (g.vx < -1.2 || finalX < -ACTION_WIDTH * 0.5) {
-          snapTo(-ACTION_WIDTH);
-        } else if (g.vx > 1.2 || finalX > ACTION_WIDTH * 0.5) {
-          snapTo(ACTION_WIDTH);
-        } else {
-          snapTo(0);
-        }
-      }
-    })
-  ).current;
+      }),
+    [translateX, handleTap, snapTo]
+  );
 
   const deleteScale = translateX.interpolate({
     inputRange: [-ACTION_WIDTH * 1.5, -ACTION_WIDTH, -ACTION_WIDTH * 0.5, 0],
@@ -286,11 +326,10 @@ function SwipeableNotification({
       <View style={[styles.actionEdge, styles.archiveSide]}>
         <Pressable onPress={archive} style={styles.actionButton}>
           <Animated.View
-            style={{
-              alignItems: "center",
-              opacity: archiveOpacity,
-              transform: [{ scale: archiveScale }]
-            }}
+            style={[
+              styles.actionContent,
+              { opacity: archiveOpacity, transform: [{ scale: archiveScale }] }
+            ]}
           >
             <Ionicons color="#fff" name="archive-outline" size={20} />
             <Text style={styles.actionLabel}>Archive</Text>
@@ -300,11 +339,10 @@ function SwipeableNotification({
       <View style={[styles.actionEdge, styles.deleteSide]}>
         <Pressable onPress={confirmDelete} style={styles.actionButton}>
           <Animated.View
-            style={{
-              alignItems: "center",
-              opacity: deleteOpacity,
-              transform: [{ scale: deleteScale }]
-            }}
+            style={[
+              styles.actionContent,
+              { opacity: deleteOpacity, transform: [{ scale: deleteScale }] }
+            ]}
           >
             <Ionicons color="#fff" name="trash-outline" size={20} />
             <Text style={styles.actionLabel}>Delete</Text>
@@ -333,10 +371,12 @@ function SwipeableNotification({
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { backgroundColor: "#fff", flex: 1 },
   badgeCard: {
-    backgroundColor: "#171717",
+    backgroundColor: color.surface,
     borderRadius: 12,
     marginHorizontal: 16,
     marginTop: 16,
@@ -361,7 +401,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: "uppercase"
   },
-  badgeLabel: { color: "#fff", fontSize: 12, fontWeight: "500" },
+  badgeLabel: { color: color.text, fontSize: 12, fontWeight: "500" },
   badgeDesc: {
     color: "#a3a3a3",
     fontSize: 11,
@@ -380,7 +420,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingTop: 60
   },
-  emptyText: { color: "#999", fontSize: 15 },
+  emptyText: { color: color.textMuted, fontSize: 15 },
   rowWrapper: {
     overflow: "hidden"
   },
@@ -405,6 +445,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     width: ACTION_WIDTH
+  },
+  actionContent: {
+    alignItems: "center"
   },
   actionLabel: { color: "#fff", fontSize: 11, fontWeight: "600", marginTop: 2 },
   item: {
@@ -431,8 +474,15 @@ const styles = StyleSheet.create({
 });
 
 const detailStyles = StyleSheet.create({
+  fullscreen: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)"
+  },
   overlay: {
-    backgroundColor: "rgba(0,0,0,0.4)",
     flex: 1,
     justifyContent: "flex-end"
   },
