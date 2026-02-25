@@ -52,6 +52,10 @@ export default function App() {
   const badgeScale = useRef(new Animated.Value(1)).current;
   const prevCount = useRef(count);
   const initialUri = useMemo(() => `${BASE_WEB_URL}${toNativeRoute("/")}`, []);
+  const webViewSource = useMemo(
+    () => ({ headers: { "x-native-app": "1" }, uri: initialUri }),
+    [initialUri]
+  );
   const messageTimestamps = useRef<Record<string, number>>({});
 
   const handleNavigationRequest = useCallback(
@@ -149,7 +153,9 @@ export default function App() {
 
     switch (parsed.type) {
       case "WEB_NAV_STATE":
-        setCurrentPath(parsed.payload.path);
+        setCurrentPath((prev) =>
+          prev === parsed.payload.path ? prev : parsed.payload.path
+        );
         break;
       case "COUNTER_ACTION":
         setCount((prev) => prev + parsed.payload.delta);
@@ -226,7 +232,7 @@ export default function App() {
             onMessage={onWebMessage}
             onShouldStartLoadWithRequest={handleNavigationRequest}
             ref={webViewRef}
-            source={{ headers: { "x-native-app": "1" }, uri: initialUri }}
+            source={webViewSource}
             style={styles.webView}
           />
           {currentPath === "/notifications" && (
